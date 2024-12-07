@@ -1,7 +1,7 @@
 body {
     margin: 0;
     padding: 0;
-    background: linear-gradient(to right, #ffa99c, #fdab9f);
+   background: linear-gradient(to right, #ffa99c, #fdab9f);
     color: #333;
     font-family: 'Poppins', sans-serif;
   
@@ -12,7 +12,7 @@ header {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    background-color: #ff6f61;
+    background-color: #fca098;
     /* Fondo del header */
     padding: 20px;
   }
