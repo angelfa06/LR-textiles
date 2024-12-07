@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración</title>
+    <link rel="stylesheet" href="admin-panel.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>Administración de Productos</h1>
+    </header>
+    
+    <main>
+        <form id="add-product-form">
+            <input type="text" id="product-name" placeholder="Nombre del Producto" required>
+            <input type="text" id="product-price" placeholder="Precio" required>
+            <input type="file" id="product-image" accept="image/*" required>
+            <textarea id="product-description" placeholder="Descripción del Producto" rows="4" required></textarea>
+            <button type="submit">Agregar Producto</button>
+        </form>
+
+        <div id="product-list">
+            <h2>Productos Agregados</h2>
+            <div id="products-container"></div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>© 2024 Johana Ropa. Todos los derechos reservados.</p>
+    </footer>
+
+    <button id="scroll-to-top" title="Ir al inicio">
+        ↑
+      </button>
+    
+    <script src="admin-panel.js"></script>
+</body>
+</html>
