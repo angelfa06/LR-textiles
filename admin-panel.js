@@ -1,6 +1,12 @@
 const form = document.getElementById("add-product-form");
 const productContainer = document.getElementById("products-container");
 
+// Inicializar localForage
+localforage.config({
+    name: 'LR_textiles',
+    storeName: 'products'
+});
+
 form.addEventListener("submit", function (e) {
     e.preventDefault();
 
@@ -25,21 +31,27 @@ form.addEventListener("submit", function (e) {
             whatsappMessage: `quiero%20comprar%20tu%20${encodeURIComponent(name)}`
         };
 
-        // Obtener los productos existentes de localStorage
-        const storedProducts = JSON.parse(localStorage.getItem("products")) || [];
-        storedProducts.push(newProduct);
+        // Obtener los productos existentes de localForage
+        localforage.getItem("products").then(storedProducts => {
+            // Si no hay productos, crear un array vacío
+            const products = storedProducts || [];
+            products.push(newProduct);
 
-        // Guardar los productos actualizados en localStorage
-        localStorage.setItem("products", JSON.stringify(storedProducts));
+            // Guardar los productos actualizados en localForage
+            return localforage.setItem("products", products);
+        }).then(() => {
+            // Mostrar un mensaje de éxito
+            alert("Producto agregado con éxito!");
 
-        // Mostrar un mensaje de éxito
-        alert("Producto agregado con éxito!");
+            // Limpiar el formulario
+            form.reset();
 
-        // Limpiar el formulario
-        form.reset();
-
-        // Actualizar la lista de productos
-        displayProducts();
+            // Actualizar la lista de productos
+            displayProducts();
+        }).catch(err => {
+            console.error("Error al guardar el producto:", err);
+            alert("Hubo un error al guardar el producto. Inténtalo de nuevo.");
+        });
     }
 
     if (imageFile) {
@@ -49,53 +61,58 @@ form.addEventListener("submit", function (e) {
 
 // Función para mostrar los productos en la interfaz
 function displayProducts() {
-    const storedProducts = JSON.parse(localStorage.getItem("products")) || [];
-    productContainer.innerHTML = ""; // Limpiar el contenedor antes de agregar los productos
+    localforage.getItem("products").then(storedProducts => {
+        const products = storedProducts || [];
+        productContainer.innerHTML = ""; // Limpiar el contenedor antes de agregar los productos
 
-    // Mostrar cada producto como una tarjeta
-    storedProducts.forEach((product, index) => {
-        const productCard = document.createElement("div");
-        productCard.className = "product-card";
-        productCard.innerHTML = `
-            <img src="${product.image}" alt="${product.name}">
-            <h3>${product.name}</h3>
-            <p><strong>Precio:</strong> ${product.price}</p>
-            <p><strong>Descripción:</strong> ${product.description}</p>
-            <button class="delete-button" data-index="${index}">Eliminar</button>
-        `;
+        // Mostrar cada producto como una tarjeta
+        products.forEach((product, index) => {
+            const productCard = document.createElement("div");
+            productCard.className = "product-card";
+            productCard.innerHTML = `
+                <img src="${product.image}" alt="${product.name}">
+                <h3>${product.name}</h3>
+                <p><strong>Precio:</strong> ${product.price}</p>
+                <p><strong>Descripción:</strong> ${product.description}</p>
+                <button class="delete-button" data-index="${index}">Eliminar</button>
+            `;
 
-        productContainer.appendChild(productCard);
-    });
-
-    // Agregar el evento de eliminación
-    const deleteButtons = document.querySelectorAll(".delete-button");
-    deleteButtons.forEach(button => {
-        button.addEventListener("click", function () {
-            const index = button.getAttribute("data-index");
-            deleteProduct(index);
+            productContainer.appendChild(productCard);
         });
+
+        // Agregar el evento de eliminación
+        const deleteButtons = document.querySelectorAll(".delete-button");
+        deleteButtons.forEach(button => {
+            button.addEventListener("click", function () {
+                const index = button.getAttribute("data-index");
+                deleteProduct(index);
+            });
+        });
+    }).catch(err => {
+        console.error("Error al cargar los productos:", err);
     });
 }
 
-// Función para eliminar un producto de localStorage y la vista
+// Función para eliminar un producto de localForage y la vista
 function deleteProduct(index) {
-    // Obtener los productos del localStorage
-    const storedProducts = JSON.parse(localStorage.getItem("products")) || [];
+    localforage.getItem("products").then(storedProducts => {
+        const products = storedProducts || [];
+        
+        // Eliminar el producto en la posición indicada
+        products.splice(index, 1);
 
-    // Eliminar el producto en la posición indicada
-    storedProducts.splice(index, 1);
-
-    // Actualizar el localStorage con los productos restantes
-    localStorage.setItem("products", JSON.stringify(storedProducts));
-
-    // Actualizar la lista de productos en la interfaz
-    displayProducts();
+        // Actualizar localForage con los productos restantes
+        return localforage.setItem("products", products);
+    }).then(() => {
+        // Actualizar la lista de productos en la interfaz
+        displayProducts();
+    }).catch(err => {
+        console.error("Error al eliminar el producto:", err);
+    });
 }
 
 // Cargar los productos al cargar la página
 displayProducts();
-
-
 
 // Seleccionar el botón
 const scrollToTopButton = document.getElementById("scroll-to-top");
