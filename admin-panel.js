@@ -1,11 +1,8 @@
 const form = document.getElementById("add-product-form");
 const productContainer = document.getElementById("products-container");
 
-// Inicializar localForage
-localforage.config({
-    name: 'LR_textiles',
-    storeName: 'products'
-});
+// Referencia a la colección de productos definida en firebase-config.js
+const productsCollection = db.collection('products');
 
 form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -13,123 +10,152 @@ form.addEventListener("submit", function (e) {
     // Obtener los valores del formulario
     const name = document.getElementById("product-name").value;
     const price = document.getElementById("product-price").value;
-    const imageFile = document.getElementById("product-image").files[0]; // Obtener la imagen
+    const imageFile = document.getElementById("product-image").files[0];
     const description = document.getElementById("product-description").value;
 
-    // Leer la imagen como URL en base64 (para cargarla sin necesidad de un servidor)
+    // Mostrar un indicador de carga
+    const loadingIndicator = document.createElement("div");
+    loadingIndicator.textContent = "Subiendo producto...";
+    loadingIndicator.style.color = "#4CAF50";
+    loadingIndicator.style.marginTop = "10px";
+    form.appendChild(loadingIndicator);
+
+    // Leer la imagen como URL en base64
     const reader = new FileReader();
     
     reader.onloadend = function () {
-        const imageBase64 = reader.result;  // La imagen convertida a base64
+        const imageBase64 = reader.result;
 
-        // Crear un nuevo producto con la imagen base64
+        // Crear un nuevo producto
         const newProduct = {
             name,
             price,
             image: imageBase64,
             description,
-            whatsappMessage: `quiero%20comprar%20tu%20${encodeURIComponent(name)}`
+            whatsappMessage: `quiero%20comprar%20tu%20${encodeURIComponent(name)}`,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        // Obtener los productos existentes de localForage
-        localforage.getItem("products").then(storedProducts => {
-            // Si no hay productos, crear un array vacío
-            const products = storedProducts || [];
-            products.push(newProduct);
-
-            // Guardar los productos actualizados en localForage
-            return localforage.setItem("products", products);
-        }).then(() => {
-            // Mostrar un mensaje de éxito
-            alert("Producto agregado con éxito!");
-
-            // Limpiar el formulario
-            form.reset();
-
-            // Actualizar la lista de productos
-            displayProducts();
-        }).catch(err => {
-            console.error("Error al guardar el producto:", err);
-            alert("Hubo un error al guardar el producto. Inténtalo de nuevo.");
-        });
-    }
+        // Agregar a Firestore
+        productsCollection.add(newProduct)
+            .then(() => {
+                // Quitar el indicador de carga
+                form.removeChild(loadingIndicator);
+                
+                // Mostrar un mensaje de éxito
+                alert("Producto agregado con éxito!");
+                
+                // Limpiar el formulario
+                form.reset();
+                
+                // Actualizar la lista de productos
+                displayProducts();
+            })
+            .catch(error => {
+                // Quitar el indicador de carga
+                form.removeChild(loadingIndicator);
+                
+                console.error("Error al agregar producto:", error);
+                alert("Error al guardar el producto: " + error.message);
+            });
+    };
 
     if (imageFile) {
-        reader.readAsDataURL(imageFile);  // Convertir la imagen a base64
+        reader.readAsDataURL(imageFile);
     }
 });
 
 // Función para mostrar los productos en la interfaz
 function displayProducts() {
-    localforage.getItem("products").then(storedProducts => {
-        const products = storedProducts || [];
-        productContainer.innerHTML = ""; // Limpiar el contenedor antes de agregar los productos
+    // Limpiar el contenedor
+    productContainer.innerHTML = "";
+    
+    // Mostrar un indicador de carga
+    const loadingIndicator = document.createElement("div");
+    loadingIndicator.textContent = "Cargando productos...";
+    loadingIndicator.style.textAlign = "center";
+    loadingIndicator.style.padding = "20px";
+    productContainer.appendChild(loadingIndicator);
 
-        // Mostrar cada producto como una tarjeta
-        products.forEach((product, index) => {
-            const productCard = document.createElement("div");
-            productCard.className = "product-card";
-            productCard.innerHTML = `
-                <img src="${product.image}" alt="${product.name}">
-                <h3>${product.name}</h3>
-                <p><strong>Precio:</strong> ${product.price}</p>
-                <p><strong>Descripción:</strong> ${product.description}</p>
-                <button class="delete-button" data-index="${index}">Eliminar</button>
-            `;
+    // Obtener productos de Firestore ordenados por fecha de creación
+    productsCollection.orderBy("createdAt", "desc").get()
+        .then(querySnapshot => {
+            // Quitar el indicador de carga
+            productContainer.removeChild(loadingIndicator);
+            
+            if (querySnapshot.empty) {
+                productContainer.innerHTML = "<p>No hay productos agregados aún.</p>";
+                return;
+            }
 
-            productContainer.appendChild(productCard);
-        });
+            // Mostrar cada producto
+            querySnapshot.forEach((doc, index) => {
+                const product = doc.data();
+                const productId = doc.id;
+                
+                const productCard = document.createElement("div");
+                productCard.className = "product-card";
+                productCard.innerHTML = `
+                    <img src="${product.image}" alt="${product.name}">
+                    <h3>${product.name}</h3>
+                    <p><strong>Precio:</strong> ${product.price}</p>
+                    <p><strong>Descripción:</strong> ${product.description}</p>
+                    <button class="delete-button" data-id="${productId}">Eliminar</button>
+                `;
 
-        // Agregar el evento de eliminación
-        const deleteButtons = document.querySelectorAll(".delete-button");
-        deleteButtons.forEach(button => {
-            button.addEventListener("click", function () {
-                const index = button.getAttribute("data-index");
-                deleteProduct(index);
+                productContainer.appendChild(productCard);
             });
+
+            // Agregar eventos de eliminación
+            const deleteButtons = document.querySelectorAll(".delete-button");
+            deleteButtons.forEach(button => {
+                button.addEventListener("click", function() {
+                    const productId = button.getAttribute("data-id");
+                    deleteProduct(productId);
+                });
+            });
+        })
+        .catch(error => {
+            // Quitar el indicador de carga
+            productContainer.removeChild(loadingIndicator);
+            
+            console.error("Error al cargar productos:", error);
+            productContainer.innerHTML = `<p>Error al cargar productos: ${error.message}</p>`;
         });
-    }).catch(err => {
-        console.error("Error al cargar los productos:", err);
-    });
 }
 
-// Función para eliminar un producto de localForage y la vista
-function deleteProduct(index) {
-    localforage.getItem("products").then(storedProducts => {
-        const products = storedProducts || [];
-        
-        // Eliminar el producto en la posición indicada
-        products.splice(index, 1);
-
-        // Actualizar localForage con los productos restantes
-        return localforage.setItem("products", products);
-    }).then(() => {
-        // Actualizar la lista de productos en la interfaz
-        displayProducts();
-    }).catch(err => {
-        console.error("Error al eliminar el producto:", err);
-    });
+// Función para eliminar un producto
+function deleteProduct(productId) {
+    if (confirm("¿Estás seguro de que deseas eliminar este producto?")) {
+        productsCollection.doc(productId).delete()
+            .then(() => {
+                alert("Producto eliminado con éxito.");
+                displayProducts();
+            })
+            .catch(error => {
+                console.error("Error al eliminar producto:", error);
+                alert("Error al eliminar el producto: " + error.message);
+            });
+    }
 }
 
-// Cargar los productos al cargar la página
+// Cargar los productos al iniciar la página
 displayProducts();
 
-// Seleccionar el botón
+// Funcionalidad del botón de scroll hacia arriba
 const scrollToTopButton = document.getElementById("scroll-to-top");
 
-// Mostrar el botón cuando el usuario hace scroll
 window.addEventListener("scroll", () => {
-    if (window.scrollY > 300) { // Aparece después de hacer scroll 300px
+    if (window.scrollY > 300) {
         scrollToTopButton.style.display = "flex";
     } else {
         scrollToTopButton.style.display = "none";
     }
 });
 
-// Llevar al usuario al inicio de la página al hacer clic
 scrollToTopButton.addEventListener("click", () => {
     window.scrollTo({
         top: 0,
-        behavior: "smooth", // Scroll suave
+        behavior: "smooth"
     });
 });
