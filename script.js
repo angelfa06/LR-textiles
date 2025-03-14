@@ -1,19 +1,52 @@
-// Inicializar localForage
-localforage.config({
-    name: 'LR_textiles',
-    storeName: 'products'
-});
-
-const products = [
-    // Productos predefinidos (si los tienes)
-];
-
 const catalog = document.getElementById("catalog");
+const searchInput = document.getElementById("search");
 
-// Función para mostrar un producto en el catálogo
+// Referencia a la colección de productos definida en firebase-config.js
+const productsCollection = db.collection('products');
+
+// Función para mostrar los productos en el catálogo
+function loadProducts() {
+    // Limpiar el catálogo
+    catalog.innerHTML = "";
+    
+    // Mostrar un indicador de carga
+    const loadingIndicator = document.createElement("div");
+    loadingIndicator.textContent = "Cargando productos...";
+    loadingIndicator.style.textAlign = "center";
+    loadingIndicator.style.padding = "20px";
+    catalog.appendChild(loadingIndicator);
+
+    // Obtener productos de Firestore ordenados por fecha de creación
+    productsCollection.orderBy("createdAt", "desc").get()
+        .then(querySnapshot => {
+            // Quitar el indicador de carga
+            catalog.removeChild(loadingIndicator);
+            
+            if (querySnapshot.empty) {
+                catalog.innerHTML = "<p style='text-align: center; padding: 20px;'>No hay productos disponibles.</p>";
+                return;
+            }
+
+            // Mostrar cada producto
+            querySnapshot.forEach(doc => {
+                const product = doc.data();
+                displayProduct(product);
+            });
+        })
+        .catch(error => {
+            // Quitar el indicador de carga
+            catalog.removeChild(loadingIndicator);
+            
+            console.error("Error al cargar productos:", error);
+            catalog.innerHTML = `<p style='text-align: center; padding: 20px;'>Error al cargar productos: ${error.message}</p>`;
+        });
+}
+
+// Función para mostrar un producto individual
 function displayProduct(product) {
     const productCard = document.createElement("div");
     productCard.className = "product";
+    productCard.setAttribute("data-name", product.name.toLowerCase());
 
     const whatsappLink = `https://wa.me/543813027362?text=${product.whatsappMessage}`;
 
@@ -30,13 +63,13 @@ function displayProduct(product) {
     catalog.appendChild(productCard);
 }
 
-// Configurar la búsqueda
-const searchInput = document.getElementById("search");
+// Función de búsqueda
 searchInput.addEventListener("input", function() {
     const query = searchInput.value.toLowerCase();
     const productCards = document.querySelectorAll(".product");
+    
     productCards.forEach(card => {
-        const productName = card.querySelector("h3").textContent.toLowerCase();
+        const productName = card.getAttribute("data-name");
         if (productName.includes(query)) {
             card.style.display = "block";
         } else {
@@ -45,50 +78,26 @@ searchInput.addEventListener("input", function() {
     });
 });
 
-// Cargar todos los productos (predefinidos y de localForage)
-function loadProducts() {
-    // Limpiar el catálogo primero
-    catalog.innerHTML = "";
-    
-    // Mostrar productos predefinidos
-    products.forEach(product => {
-        displayProduct(product);
-    });
-    
-    // Obtener y mostrar productos de localForage
-    localforage.getItem("products").then(storedProducts => {
-        if (storedProducts) {
-            storedProducts.forEach(product => {
-                displayProduct(product);
-            });
-        }
-    }).catch(err => {
-        console.error("Error al cargar productos de localForage:", err);
-    });
-}
-
-// Cargar los productos al iniciar
+// Cargar productos al iniciar la página
 loadProducts();
 
-// Actualizar el año en el footer
+// Actualizar año en el footer
 document.getElementById("current-year").textContent = new Date().getFullYear();
 
-// Seleccionar el botón
+// Funcionalidad del botón de scroll hacia arriba
 const scrollToTopButton = document.getElementById("scroll-to-top");
 
-// Mostrar el botón cuando el usuario hace scroll
 window.addEventListener("scroll", () => {
-    if (window.scrollY > 300) { // Aparece después de hacer scroll 300px
+    if (window.scrollY > 300) {
         scrollToTopButton.style.display = "flex";
     } else {
         scrollToTopButton.style.display = "none";
     }
 });
 
-// Llevar al usuario al inicio de la página al hacer clic
 scrollToTopButton.addEventListener("click", () => {
     window.scrollTo({
         top: 0,
-        behavior: "smooth", // Scroll suave
+        behavior: "smooth"
     });
 });
