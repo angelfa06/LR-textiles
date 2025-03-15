@@ -101,3 +101,15 @@ scrollToTopButton.addEventListener("click", () => {
         behavior: "smooth"
     });
 });
+
+import { db } from './firebase-config.js';
+import { collection, getDocs } from "firebase/firestore";
+
+async function obtenerProductos() {
+  const querySnapshot = await getDocs(collection(db, "productos"));
+  querySnapshot.forEach((doc) => {
+    console.log(doc.id, " => ", doc.data());
+  });
+}
+
+obtenerProductos();
